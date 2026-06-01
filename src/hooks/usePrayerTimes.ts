@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import * as adhan from 'adhan';
+import { Coordinates, CalculationMethod, CalculationParameters, PrayerTimes, Madhab } from 'adhan';
 import { LocationData } from './useLocation';
 import { storage } from '../utils/storage';
 
@@ -10,16 +10,6 @@ export interface PrayerTime {
   timeStr: string;
   isNext: boolean;
   notifyEnabled: boolean;
-}
-
-export interface PrayerTimesData {
-  fajr: Date;
-  sunrise: Date;
-  dhuhr: Date;
-  asr: Date;
-  maghrib: Date;
-  isha: Date;
-  date: Date;
 }
 
 export const CALC_METHODS: Record<string, string> = {
@@ -50,21 +40,20 @@ function formatTime(date: Date): string {
   return date.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
-function getMethodParams(method: string): adhan.CalculationParameters {
-  const m = adhan.CalculationMethod as any;
+function getMethodParams(method: string): CalculationParameters {
   switch (method) {
-    case 'Egyptian': return m.Egyptian();
-    case 'Karachi': return m.Karachi();
-    case 'UmmAlQura': return m.UmmAlQura();
-    case 'Dubai': return m.Dubai();
-    case 'Qatar': return m.Qatar();
-    case 'Kuwait': return m.Kuwait();
-    case 'MoonsightingCommittee': return m.MoonsightingCommittee();
-    case 'NorthAmerica': return m.NorthAmerica();
-    case 'Singapore': return m.Singapore();
-    case 'Turkey': return m.Turkey();
-    case 'Tehran': return m.Tehran();
-    default: return m.MuslimWorldLeague();
+    case 'Egyptian':              return CalculationMethod.Egyptian();
+    case 'Karachi':               return CalculationMethod.Karachi();
+    case 'UmmAlQura':             return CalculationMethod.UmmAlQura();
+    case 'Dubai':                 return CalculationMethod.Dubai();
+    case 'Qatar':                 return CalculationMethod.Qatar();
+    case 'Kuwait':                return CalculationMethod.Kuwait();
+    case 'MoonsightingCommittee': return CalculationMethod.MoonsightingCommittee();
+    case 'NorthAmerica':          return CalculationMethod.NorthAmerica();
+    case 'Singapore':             return CalculationMethod.Singapore();
+    case 'Turkey':                return CalculationMethod.Turkey();
+    case 'Tehran':                return CalculationMethod.Tehran();
+    default:                      return CalculationMethod.MuslimWorldLeague();
   }
 }
 
@@ -78,7 +67,7 @@ export function usePrayerTimes(location: LocationData | null) {
 
   const loadSettings = useCallback(async () => {
     const method = await storage.get<string>('calc_method', 'Egyptian');
-    const mad = await storage.get<string>('madhab', 'Shafi');
+    const mad    = await storage.get<string>('madhab', 'Shafi');
     const notify = await storage.get<Record<string, boolean>>('notify_settings', {
       fajr: true, sunrise: false, dhuhr: true, asr: true, maghrib: true, isha: true,
     });
@@ -87,51 +76,45 @@ export function usePrayerTimes(location: LocationData | null) {
     setNotifySettings(notify);
   }, []);
 
-  const calculate = useCallback((loc: LocationData, method: string, mad: string, notifyMap: Record<string, boolean>) => {
-    const coords = new adhan.Coordinates(loc.lat, loc.lon);
+  const calculate = useCallback((
+    loc: LocationData,
+    method: string,
+    mad: string,
+    notifyMap: Record<string, boolean>,
+  ) => {
+    const coords = new Coordinates(loc.lat, loc.lon);
     const params = getMethodParams(method);
-    if (mad === 'Hanafi') {
-      params.madhab = adhan.Madhab.Hanafi;
-    } else {
-      params.madhab = adhan.Madhab.Shafi;
-    }
-
-    const now = new Date();
-    const date = new adhan.DateComponents(now.getFullYear(), now.getMonth() + 1, now.getDate());
-    const times = new adhan.PrayerTimes(coords, date, params);
+    params.madhab = mad === 'Hanafi' ? Madhab.Hanafi : Madhab.Shafi;
+    const now   = new Date();
+    const times = new PrayerTimes(coords, now, params);
 
     const prayerList = [
-      { key: 'fajr', time: times.fajr },
+      { key: 'fajr',    time: times.fajr },
       { key: 'sunrise', time: times.sunrise },
-      { key: 'dhuhr', time: times.dhuhr },
-      { key: 'asr', time: times.asr },
+      { key: 'dhuhr',   time: times.dhuhr },
+      { key: 'asr',     time: times.asr },
       { key: 'maghrib', time: times.maghrib },
-      { key: 'isha', time: times.isha },
+      { key: 'isha',    time: times.isha },
     ];
 
-    // Find next prayer
-    const nextPrayer = times.nextPrayer(now);
-    
+    const nextPrayer = times.nextPrayer();
+
     const result: PrayerTime[] = prayerList.map(p => ({
-      name: p.key,
-      nameAr: PRAYER_NAMES_AR[p.key],
-      time: p.time,
-      timeStr: formatTime(p.time),
-      isNext: p.key === nextPrayer,
+      name:          p.key,
+      nameAr:        PRAYER_NAMES_AR[p.key],
+      time:          p.time,
+      timeStr:       formatTime(p.time),
+      isNext:        p.key === nextPrayer,
       notifyEnabled: notifyMap[p.key] ?? true,
     }));
 
     setPrayers(result);
   }, []);
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
+  useEffect(() => { loadSettings(); }, []);
 
   useEffect(() => {
-    if (location) {
-      calculate(location, calcMethod, madhab, notifySettings);
-    }
+    if (location) calculate(location, calcMethod, madhab, notifySettings);
   }, [location, calcMethod, madhab, notifySettings]);
 
   const updateNotify = async (prayerKey: string, enabled: boolean) => {
@@ -150,9 +133,8 @@ export function usePrayerTimes(location: LocationData | null) {
     await storage.set('madhab', mad);
   };
 
-  const getNextPrayer = (): PrayerTime | null => {
-    return prayers.find(p => p.isNext) || null;
-  };
+  const getNextPrayer = (): PrayerTime | null =>
+    prayers.find(p => p.isNext) || null;
 
   const getTimeUntilNext = (): string => {
     const next = getNextPrayer();
@@ -162,19 +144,13 @@ export function usePrayerTimes(location: LocationData | null) {
     const h = Math.floor(diff / 3_600_000);
     const m = Math.floor((diff % 3_600_000) / 60_000);
     const s = Math.floor((diff % 60_000) / 1_000);
-    if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-    return `${m}:${String(s).padStart(2,'0')}`;
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    return `${m}:${String(s).padStart(2, '0')}`;
   };
 
   return {
-    prayers,
-    calcMethod,
-    madhab,
-    notifySettings,
-    updateNotify,
-    updateMethod,
-    updateMadhab,
-    getNextPrayer,
-    getTimeUntilNext,
+    prayers, calcMethod, madhab, notifySettings,
+    updateNotify, updateMethod, updateMadhab,
+    getNextPrayer, getTimeUntilNext,
   };
-}
+      }
