@@ -1,4 +1,3 @@
-/** @type {import('@capacitor/cli').CapacitorConfig} */
 const config = {
   appId: 'com.mohamed.Alaa',
   appName: 'صلاتي',
