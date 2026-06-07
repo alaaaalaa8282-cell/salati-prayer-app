@@ -21,7 +21,7 @@ export function useLocation() {
       );
       const data = await res.json();
       return {
-        city: data.address?.city || data.address?.town || data.address?.village || data.address?.county || 'موقعك',
+        city: data.address?.city || data.address?.town || data.address?.village || 'موقعك',
         country: data.address?.country || '',
       };
     } catch {
@@ -29,17 +29,21 @@ export function useLocation() {
     }
   };
 
+  const tryBrowserGeo = (): Promise<{ lat: number; lon: number }> =>
+    new Promise((resolve, reject) => {
+      if (!navigator.geolocation) return reject('غير مدعوم');
+      navigator.geolocation.getCurrentPosition(
+        p => resolve({ lat: p.coords.latitude, lon: p.coords.longitude }),
+        err => reject(err.message),
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
+
   const getLocation = async (forceRefresh = false) => {
     setLoading(true);
     setError(null);
     try {
-      // طلب الإذن أولاً
-      const perm = await Geolocation.requestPermissions();
-      if (perm.location !== 'granted' && perm.coarseLocation !== 'granted') {
-        throw new Error('لم يتم منح إذن الموقع');
-      }
-
-      // تحقق من الكاش
+      // من الكاش أولاً
       if (!forceRefresh) {
         const cached = await storage.get<{ data: LocationData; ts: number } | null>('loc_cache', null);
         if (cached && Date.now() - cached.ts < 30 * 60 * 1000) {
@@ -49,18 +53,35 @@ export function useLocation() {
         }
       }
 
-      const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
-      const { latitude: lat, longitude: lon } = pos.coords;
+      let lat = 0, lon = 0;
+
+      // محاولة 1: Capacitor Geolocation
+      try {
+        await Geolocation.requestPermissions();
+        const pos = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: 8000,
+        });
+        lat = pos.coords.latitude;
+        lon = pos.coords.longitude;
+      } catch {
+        // محاولة 2: Browser Geolocation
+        const pos = await tryBrowserGeo();
+        lat = pos.lat;
+        lon = pos.lon;
+      }
+
       const { city, country } = await fetchCity(lat, lon);
       const data: LocationData = { lat, lon, city, country };
       setLocation(data);
       await storage.set('loc_cache', { data, ts: Date.now() });
-    } catch (err: any) {
+    } catch {
+      // آخر موقع محفوظ
       const cached = await storage.get<{ data: LocationData } | null>('loc_cache', null);
       if (cached) {
         setLocation(cached.data);
       } else {
-        setError(err.message?.includes('إذن') ? err.message : 'تعذّر الحصول على موقعك. يرجى تفعيل GPS.');
+        setError('يرجى الذهاب لإعدادات الهاتف ← التطبيقات ← صلاتي ← الأذونات ← الموقع ← السماح');
       }
     } finally {
       setLoading(false);
@@ -70,4 +91,4 @@ export function useLocation() {
   useEffect(() => { getLocation(); }, []);
 
   return { location, loading, error, refresh: () => getLocation(true) };
-}
+                             }
