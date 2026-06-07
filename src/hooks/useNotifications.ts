@@ -3,82 +3,75 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { PrayerTime } from './usePrayerTimes';
 
 export function useNotifications() {
-  useEffect(() => {
-    requestPermission();
-  }, []);
+  useEffect(() => { requestPermission(); }, []);
 
   const requestPermission = async () => {
-    try {
-      await LocalNotifications.requestPermissions();
-    } catch (e) {
-      console.warn('Notification permission error:', e);
-    }
+    try { await LocalNotifications.requestPermissions(); } catch {}
   };
 
-  const schedulePrayerNotifications = async (prayers: PrayerTime[], azanVoice: string) => {
+  const schedulePrayerNotifications = async (
+    prayers: PrayerTime[],
+    perPrayerVoice: Record<string, string>,
+    iqamaEnabled: boolean,
+    iqamaDelay: number,
+  ) => {
     try {
-      await LocalNotifications.cancel({ notifications: (await LocalNotifications.getPending()).notifications });
+      const pending = await LocalNotifications.getPending();
+      if (pending.notifications.length > 0)
+        await LocalNotifications.cancel({ notifications: pending.notifications });
 
-      const notifications = prayers
-        .filter(p => p.notifyEnabled && p.time > new Date())
-        .map((p, i) => ({
+      const now = new Date();
+      const notifications: any[] = [];
+
+      prayers.forEach((p, i) => {
+        if (!p.notifyEnabled || p.name === 'sunrise') return;
+        if (p.time <= now) return;
+
+        // إشعار الأذان
+        notifications.push({
           id: i + 1,
-          title: `حان وقت صلاة ${p.nameAr}`,
-          body: `الآن ${p.timeStr} - ${p.nameAr}`,
+          title: `🕌 حان وقت صلاة ${p.nameAr}`,
+          body: `الآن ${p.timeStr}`,
           schedule: { at: p.time },
-          sound: 'azan.mp3',
           smallIcon: 'ic_launcher_foreground',
           iconColor: '#C8A96E',
-        }));
+          extra: { prayer: p.name, voice: perPrayerVoice[p.name] || 'ar.alafasy' },
+        });
 
-      if (notifications.length > 0) {
+        // إشعار الإقامة
+        if (iqamaEnabled && p.name !== 'sunrise') {
+          const iqamaTime = new Date(p.time.getTime() + iqamaDelay * 60 * 1000);
+          notifications.push({
+            id: i + 10,
+            title: `🕌 إقامة صلاة ${p.nameAr}`,
+            body: `حان وقت إقامة صلاة ${p.nameAr}`,
+            schedule: { at: iqamaTime },
+            smallIcon: 'ic_launcher_foreground',
+            iconColor: '#2E7D5B',
+          });
+        }
+      });
+
+      if (notifications.length > 0)
         await LocalNotifications.schedule({ notifications });
-      }
-    } catch (e) {
-      console.warn('Schedule notifications error:', e);
-    }
+    } catch (e) { console.warn('Schedule notifications error:', e); }
   };
 
-  const scheduleAzkarReminder = async (type: 'morning' | 'evening', hour: number, minute: number) => {
+  const scheduleAzkarReminder = async (hour: number, minute: number, type: 'morning' | 'evening') => {
     try {
-      const id = type === 'morning' ? 100 : 101;
+      const id   = type === 'morning' ? 200 : 201;
       const title = type === 'morning' ? '🌅 أذكار الصباح' : '🌆 أذكار المساء';
-      const body = type === 'morning' ? 'حان وقت أذكار الصباح' : 'حان وقت أذكار المساء';
-
+      const body  = type === 'morning' ? 'حان وقت أذكار الصباح' : 'حان وقت أذكار المساء';
       await LocalNotifications.schedule({
         notifications: [{
-          id,
-          title,
-          body,
-          schedule: {
-            on: { hour, minute },
-            repeats: true,
-          },
+          id, title, body,
+          schedule: { on: { hour, minute }, repeats: true },
           smallIcon: 'ic_launcher_foreground',
           iconColor: '#C8A96E',
         }],
       });
-    } catch (e) {
-      console.warn('Azkar reminder error:', e);
-    }
+    } catch (e) { console.warn(e); }
   };
 
-  const scheduleIslamicDutyReminder = async (id: number, title: string, body: string, date: Date) => {
-    try {
-      await LocalNotifications.schedule({
-        notifications: [{
-          id,
-          title,
-          body,
-          schedule: { at: date },
-          smallIcon: 'ic_launcher_foreground',
-          iconColor: '#C8A96E',
-        }],
-      });
-    } catch (e) {
-      console.warn('Duty reminder error:', e);
-    }
-  };
-
-  return { schedulePrayerNotifications, scheduleAzkarReminder, scheduleIslamicDutyReminder };
+  return { schedulePrayerNotifications, scheduleAzkarReminder };
 }
