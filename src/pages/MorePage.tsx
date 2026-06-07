@@ -5,16 +5,20 @@ import LibraryPage from './LibraryPage';
 import WallpapersPage from './WallpapersPage';
 import GreetingCardsPage from './GreetingCardsPage';
 import SettingsPage from './SettingsPage';
+import TasbihPage from './TasbihPage';
+import PrayerTrackerPage from './PrayerTrackerPage';
 
-type SubPage = null | 'mosques' | 'ramadan' | 'library' | 'wallpapers' | 'cards' | 'settings';
+type SubPage = null | 'mosques' | 'ramadan' | 'library' | 'wallpapers' | 'cards' | 'settings' | 'tasbih' | 'tracker';
 
 const MENU_ITEMS = [
-  { id: 'mosques',    icon: '🕌', title: 'أقرب المساجد',       desc: 'ابحث عن مساجد بالقرب منك' },
-  { id: 'ramadan',    icon: '🌙', title: 'رمضان',              desc: 'إمساكية، تذكيرات، معلومات' },
-  { id: 'library',    icon: '📚', title: 'المكتبة الإسلامية',  desc: 'كتب ومواقع إسلامية' },
-  { id: 'wallpapers', icon: '🖼️', title: 'خلفيات إسلامية',    desc: 'خلفيات جميلة للهاتف' },
-  { id: 'cards',      icon: '🎉', title: 'بطاقات التهنئة',     desc: 'تهنئة بالمناسبات الإسلامية' },
-  { id: 'settings',   icon: '⚙️', title: 'الإعدادات',          desc: 'تخصيص التطبيق وإعداداته' },
+  { id: 'tracker',    icon: '📊', title: 'متابعة الصلوات',      desc: 'تتبع صلواتك وإحصائياتها' },
+  { id: 'tasbih',     icon: '📿', title: 'المسبحة الرقمية',     desc: 'تسبيح وذكر مع عداد' },
+  { id: 'mosques',    icon: '🕌', title: 'أقرب المساجد',        desc: 'ابحث عن مساجد بالقرب منك' },
+  { id: 'ramadan',    icon: '🌙', title: 'رمضان',               desc: 'إمساكية وتذكيرات رمضان' },
+  { id: 'library',    icon: '📚', title: 'المكتبة الإسلامية',   desc: 'كتب ومواقع إسلامية' },
+  { id: 'wallpapers', icon: '🖼️', title: 'خلفيات إسلامية',     desc: 'خلفيات جميلة للهاتف' },
+  { id: 'cards',      icon: '🎉', title: 'بطاقات التهنئة',      desc: 'تهنئة بالمناسبات الإسلامية' },
+  { id: 'settings',   icon: '⚙️', title: 'الإعدادات',           desc: 'تخصيص التطبيق' },
 ] as const;
 
 export default function MorePage() {
@@ -22,6 +26,8 @@ export default function MorePage() {
 
   const renderSubPage = () => {
     switch (page) {
+      case 'tracker':    return <PrayerTrackerPage />;
+      case 'tasbih':     return <TasbihPage />;
       case 'mosques':    return <MosquesPage />;
       case 'ramadan':    return <RamadanPage />;
       case 'library':    return <LibraryPage />;
@@ -34,20 +40,15 @@ export default function MorePage() {
 
   if (page) {
     return (
-      <div style={{ position: 'relative' }}>
-        {/* Back button overlay */}
+      <div>
         <div style={{
           position: 'sticky', top: 0, zIndex: 200,
           display: 'flex', alignItems: 'center',
           background: 'var(--bg-surface)',
           borderBottom: '1px solid var(--border)',
-          padding: '14px 16px',
-          gap: 12,
+          padding: '14px 16px', gap: 12,
         }}>
-          <button
-            onClick={() => setPage(null)}
-            style={{ background: 'none', border: 'none', color: 'var(--gold)', fontSize: 24, cursor: 'pointer', padding: 0 }}
-          >←</button>
+          <button onClick={() => setPage(null)} style={{ background: 'none', border: 'none', color: 'var(--gold)', fontSize: 24, cursor: 'pointer', padding: 0 }}>←</button>
           <p style={{ color: 'var(--gold)', fontWeight: 700, fontSize: 16 }}>
             {MENU_ITEMS.find(m => m.id === page)?.title}
           </p>
@@ -64,34 +65,18 @@ export default function MorePage() {
         <h1>المزيد</h1>
       </div>
 
-      {/* App branding */}
-      <div style={{
-        margin: '16px 16px 8px',
-        background: 'linear-gradient(135deg, #1A2B3C, #0D1B2A)',
-        borderRadius: 14, padding: '20px', textAlign: 'center',
-        border: '1px solid rgba(200,169,110,0.2)',
-      }}>
+      <div style={{ margin: '12px 16px 8px', background: 'linear-gradient(135deg,#1A2B3C,#0D1B2A)', borderRadius: 14, padding: 20, textAlign: 'center', border: '1px solid rgba(200,169,110,0.2)' }}>
         <p style={{ fontSize: 36, marginBottom: 8 }}>🕌</p>
         <p style={{ color: 'var(--gold)', fontWeight: 800, fontSize: 20 }}>صلاتي</p>
         <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4 }}>تطبيق المسلم الشامل</p>
       </div>
 
-      {/* Menu grid */}
       <div style={{ padding: '8px 16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         {MENU_ITEMS.map(item => (
-          <div
-            key={item.id}
-            className="card"
-            onClick={() => setPage(item.id)}
+          <div key={item.id} className="card" onClick={() => setPage(item.id)}
             style={{ display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer', padding: '14px 16px' }}
           >
-            <div style={{
-              width: 48, height: 48, borderRadius: 12,
-              background: 'var(--bg-surface)',
-              border: '1px solid var(--border)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 24, flexShrink: 0,
-            }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: 'var(--bg-surface)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>
               {item.icon}
             </div>
             <div style={{ flex: 1 }}>
@@ -102,8 +87,6 @@ export default function MorePage() {
           </div>
         ))}
       </div>
-
-      {/* App version */}
       <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 11, paddingBottom: 10 }}>
         صلاتي v1.0.0 • com.mohamed.Alaa
       </p>
